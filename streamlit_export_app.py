@@ -330,8 +330,41 @@ def get_downloadable_file(df, file_format):
     buffer.seek(0)
     return buffer, mime, file_ext
 
+# Password check function
+def check_password():
+    """Returns `True` if the user had the correct password."""
+    
+    # Get password from .env file
+    correct_password = os.getenv("APP_PASSWORD")
+    
+    # If no password is set in .env, don't require password
+    if not correct_password:
+        return True
+    
+    # Check if authentication state already exists
+    if "password_correct" in st.session_state:
+        return st.session_state.password_correct
+    
+    # Show input for password
+    password = st.text_input("Enter password", type="password")
+    
+    # Check if password is correct
+    if password:
+        if password == correct_password:
+            st.session_state.password_correct = True
+            return True
+        else:
+            st.error("Incorrect password. Please try again.")
+            return False
+    else:
+        return False
+
 # Main app
 def main():
+    # Check password first
+    if not check_password():
+        st.stop()  # Stop execution if password is incorrect
+    
     st.title("Athletics Results Exporter 🏃‍♂️🏃‍♀️")
     
     st.markdown("""
