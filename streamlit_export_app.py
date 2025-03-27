@@ -1,6 +1,7 @@
 import os
 import pandas as pd
 import streamlit as st
+import pymysql
 from sqlalchemy import create_engine, text
 from dotenv import load_dotenv
 import datetime
@@ -10,6 +11,41 @@ import io
 
 # Load environment variables
 load_dotenv()
+
+# Direct connection test function using pymysql (like the working app)
+def test_direct_connection():
+    # Get database connection details from environment variables with defaults
+    host = os.environ.get("DB_HOST", "sportsdb-sports-database-for-web-scrapes.g.aivencloud.com")
+    port = int(os.environ.get("DB_PORT", "16439"))
+    user = os.environ.get("DB_USER", "avnadmin")
+    password = os.environ.get("DB_PASSWORD")  # Password from .env file
+    database = os.environ.get("DB_NAME", "defaultdb")
+    
+    try:
+        # Create a direct pymysql connection (similar to the working app)
+        conn = pymysql.connect(
+            host=host,
+            port=port,
+            user=user,
+            password=password,
+            database=database
+        )
+        cursor = conn.cursor()
+        
+        # Test with a simple query
+        cursor.execute("SELECT 1")
+        result = cursor.fetchone()
+        st.success(f"Direct connection test successful: {result}")
+        
+        # Close connections
+        cursor.close()
+        conn.close()
+        return True
+    except Exception as e:
+        st.error(f"Direct connection test failed: {str(e)}")
+        import traceback
+        st.error(f"Error details: {traceback.format_exc()}")
+        return False
 
 # Set page configuration
 st.set_page_config(
@@ -22,15 +58,25 @@ st.set_page_config(
 # Database connection details
 @st.cache_resource
 def get_database_connection():
-    host = 'sportsdb-sports-database-for-web-scrapes.g.aivencloud.com'
-    port = 16439
-    user = 'avnadmin'
-    password = os.getenv('DB_PASSWORD')  # Password from .env file
-    database = 'defaultdb'
+    # Get database connection details from environment variables with defaults
+    host = os.environ.get("DB_HOST", "sportsdb-sports-database-for-web-scrapes.g.aivencloud.com")
+    port = int(os.environ.get("DB_PORT", "16439"))
+    user = os.environ.get("DB_USER", "avnadmin")
+    password = os.environ.get("DB_PASSWORD")  # Password from .env file
+    database = os.environ.get("DB_NAME", "defaultdb")
     
-    # MySQL database connection string
-    db_url = f'mysql+pymysql://{user}:{password}@{host}:{port}/{database}?charset=utf8mb4'
-    return create_engine(db_url)
+    # Create a direct pymysql connection first (similar to the working app)
+    try:
+        # Create a connection pool using SQLAlchemy
+        db_url = f'mysql+pymysql://{user}:{password}@{host}:{port}/{database}'
+        
+        # Create engine with minimal connection arguments
+        return create_engine(db_url)
+    except Exception as e:
+        st.error(f"Failed to create database connection: {str(e)}")
+        import traceback
+        st.error(f"Connection error details: {traceback.format_exc()}")
+        raise
 
 # Get min and max dates from the database
 @st.cache_data(ttl=3600)  # Cache for 1 hour
@@ -38,6 +84,10 @@ def get_date_range(table_name='Tilastopija_results'):
     engine = get_database_connection()
     try:
         with engine.connect() as conn:
+            # Test connection with a simple query first
+            test_query = text("SELECT 1")
+            conn.execute(test_query)
+            
             # Query for min date
             min_date_query = text(f"SELECT MIN(Start_Date) FROM {table_name}")
             min_date_result = conn.execute(min_date_query).scalar()
@@ -48,7 +98,10 @@ def get_date_range(table_name='Tilastopija_results'):
             
             return min_date_result, max_date_result
     except Exception as e:
+        import traceback
+        error_details = traceback.format_exc()
         st.error(f"Error fetching date range: {str(e)}")
+        st.error(f"Detailed error: {error_details}")
         return None, None
 
 # Get unique events from the database
@@ -372,11 +425,25 @@ def main():
     Select your desired filters and export format to download the data.
     """)
     
+    # Add a connection test button
+    if st.sidebar.button("Test Database Connection"):
+        with st.sidebar:
+            st.info("Testing direct database connection...")
+            if test_direct_connection():
+                st.success("Direct connection successful!")
+            else:
+                st.error("Direct connection failed. See error details above.")
+    
     # Get date range from database
     min_date, max_date = get_date_range()
     
     if min_date is None or max_date is None:
         st.error("Could not retrieve date range from database. Please check your connection.")
+        
+        # Offer to test the connection
+        if st.button("Test Connection Directly"):
+            test_direct_connection()
+        
         return
     
     # Convert to datetime if they're strings
