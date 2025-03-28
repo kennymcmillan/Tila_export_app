@@ -426,13 +426,13 @@ def main():
     """)
     
     # Add a connection test button
-    if st.sidebar.button("Test Database Connection"):
-        with st.sidebar:
-            st.info("Testing direct database connection...")
-            if test_direct_connection():
-                st.success("Direct connection successful!")
-            else:
-                st.error("Direct connection failed. See error details above.")
+    # if st.sidebar.button("Test Database Connection"):
+    #     with st.sidebar:
+    #         st.info("Testing direct database connection...")
+    #         if test_direct_connection():
+    #             st.success("Direct connection successful!")
+    #         else:
+    #             st.error("Direct connection failed. See error details above.")
     
     # Get date range from database
     min_date, max_date = get_date_range()
